@@ -1,5 +1,5 @@
 {
-  "name": "lass-payroll-tracker",
+  "name": "payroll-tracker",
   "version": "0.1.0",
   "private": true,
   "dependencies": {

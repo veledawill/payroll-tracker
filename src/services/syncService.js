@@ -1,274 +1,303 @@
-import { v4 as uuidv4 } from 'uuid';
-import apiService from './api';
+import { v4 as uuidv4 } from "uuid";
+import apiService from "./api";
 
-// Chaves para armazenamento local
-const PENDING_SYNC_KEY = 'lass_pending_sync';
-const WORK_HOURS_KEY = 'lass_work_hours';
-const LAST_SYNC_KEY = 'lass_last_sync';
+// Local storage keys
+const PENDING_SYNC_KEY = "lass_pending_sync";
+const WORK_HOURS_KEY = "lass_work_hours";
+const LAST_SYNC_KEY = "lass_last_sync";
 
 class SyncService {
-  // Salvar horas de trabalho (funciona tanto online quanto offline)
+  // ── Save work hours (online + offline) ──────────────────────────────────────
   async saveWorkHours(userId, workDate, hours) {
-    // Gerar ID de sincronização único para este registro
     const syncId = uuidv4();
     const timestamp = new Date().toISOString();
-    
-    // Get existing clock-in time if available
+
     const existingData = this.getLocalWorkData(workDate);
-    const clockInTime = existingData.clockIn || '';
-    
-    // Preparar dados
+    const clockInTime = existingData.clockIn || "";
+    const clockOutTime = existingData.clockOut || ""; // ← NEW: preserve clockOut
+
     const workHourData = {
       userId,
       workDate,
       hours,
       clockInTime,
+      clockOutTime, // ← NEW
       sync_id: syncId,
-      updated_at: timestamp
+      updated_at: timestamp,
     };
-    
-    // Salvar localmente primeiro (independente de estarmos online ou offline)
-    this.saveToLocalStorage(workDate, hours, clockInTime, syncId, timestamp);
-    
+
+    this.saveToLocalStorage(
+      workDate,
+      hours,
+      clockInTime,
+      clockOutTime,
+      syncId,
+      timestamp
+    ); // ← updated signature
+
     try {
-      // Tentar salvar no servidor
       const response = await apiService.saveWorkHours(workHourData);
-      
-      // Se bem-sucedido, atualizar status de sincronização local
       if (response.data.success) {
         this.markAsSynced(syncId, response.data.work_hour.updated_at);
       }
-      
       return response.data;
     } catch (error) {
-      // Se falhou, adicionar à fila de pendências para sincronização futura
       this.addToPendingSync(workHourData);
-      
-      // Retornar "sucesso" mesmo assim, já que salvamos localmente
-      return { 
-        success: true, 
+      return {
+        success: true,
         offline: true,
         local_sync_id: syncId,
-        message: 'Salvo localmente. Será sincronizado quando houver conexão.'
+        message: "Saved locally. Will sync when connection is restored.",
       };
     }
   }
 
-  // Salvar horário de entrada
+  // ── Save clock-in time ───────────────────────────────────────────────────────
   async saveClockInTime(userId, workDate, clockInTime) {
-    // Gerar ID de sincronização único para este registro
     const syncId = uuidv4();
     const timestamp = new Date().toISOString();
-    
-    // Get existing hours if available
+
     const existingData = this.getLocalWorkData(workDate);
     const hours = existingData.hours || 0;
-    
-    // Preparar dados
+    const clockOutTime = existingData.clockOut || ""; // ← NEW: preserve clockOut
+
     const workHourData = {
       userId,
       workDate,
       hours,
       clockInTime,
+      clockOutTime, // ← NEW
       sync_id: syncId,
-      updated_at: timestamp
+      updated_at: timestamp,
     };
-    
-    // Salvar localmente primeiro
-    this.saveToLocalStorage(workDate, hours, clockInTime, syncId, timestamp);
-    
+
+    this.saveToLocalStorage(
+      workDate,
+      hours,
+      clockInTime,
+      clockOutTime,
+      syncId,
+      timestamp
+    );
+
     try {
-      // Tentar salvar no servidor
       const response = await apiService.saveWorkHours(workHourData);
-      
-      // Se bem-sucedido, atualizar status de sincronização local
       if (response.data.success) {
         this.markAsSynced(syncId, response.data.work_hour.updated_at);
       }
-      
       return response.data;
     } catch (error) {
-      // Se falhou, adicionar à fila de pendências para sincronização futura
       this.addToPendingSync(workHourData);
-      
-      // Retornar "sucesso" mesmo assim, já que salvamos localmente
-      return { 
-        success: true, 
+      return {
+        success: true,
         offline: true,
         local_sync_id: syncId,
-        message: 'Horário de entrada salvo localmente. Será sincronizado quando houver conexão.'
+        message:
+          "Clock-in time saved locally. Will sync when connection is restored.",
       };
     }
   }
 
-  // Get existing work data for a date
+  // ── NEW: Save clock-out time ─────────────────────────────────────────────────
+  async saveClockOutTime(userId, workDate, clockOutTime) {
+    const syncId = uuidv4();
+    const timestamp = new Date().toISOString();
+
+    const existingData = this.getLocalWorkData(workDate);
+    const hours = existingData.hours || 0;
+    const clockInTime = existingData.clockIn || "";
+
+    const workHourData = {
+      userId,
+      workDate,
+      hours,
+      clockInTime,
+      clockOutTime,
+      sync_id: syncId,
+      updated_at: timestamp,
+    };
+
+    this.saveToLocalStorage(
+      workDate,
+      hours,
+      clockInTime,
+      clockOutTime,
+      syncId,
+      timestamp
+    );
+
+    try {
+      const response = await apiService.saveWorkHours(workHourData);
+      if (response.data.success) {
+        this.markAsSynced(syncId, response.data.work_hour.updated_at);
+      }
+      return response.data;
+    } catch (error) {
+      this.addToPendingSync(workHourData);
+      return {
+        success: true,
+        offline: true,
+        local_sync_id: syncId,
+        message:
+          "Clock-out time saved locally. Will sync when connection is restored.",
+      };
+    }
+  }
+
+  // ── Get existing work data from localStorage ─────────────────────────────────
   getLocalWorkData(workDate) {
     try {
       const storedData = localStorage.getItem(WORK_HOURS_KEY);
       if (storedData) {
         const workHours = JSON.parse(storedData);
         const data = workHours[workDate];
-        
-        if (typeof data === 'object') {
+
+        if (typeof data === "object") {
           return {
             hours: data.hours || 0,
-            clockIn: data.clockIn || ''
+            clockIn: data.clockIn || "",
+            clockOut: data.clockOut || "", // ← NEW
           };
         } else {
-          return {
-            hours: data || 0,
-            clockIn: ''
-          };
+          return { hours: data || 0, clockIn: "", clockOut: "" };
         }
       }
     } catch (error) {
-      console.error('Error getting local work data:', error);
+      console.error("Error getting local work data:", error);
     }
-    
-    return { hours: 0, clockIn: '' };
+    return { hours: 0, clockIn: "", clockOut: "" };
   }
-  
-  // Salvar no localStorage
-  saveToLocalStorage(workDate, hours, clockInTime, syncId, timestamp) {
-    // Obter dados existentes
+
+  // ── Save to localStorage ─────────────────────────────────────────────────────
+  // Updated signature: added clockOutTime parameter
+  saveToLocalStorage(
+    workDate,
+    hours,
+    clockInTime,
+    clockOutTime,
+    syncId,
+    timestamp
+  ) {
     const storedData = localStorage.getItem(WORK_HOURS_KEY);
     let workHours = storedData ? JSON.parse(storedData) : {};
-    
-    // Atualizar com novos dados
+
     workHours[workDate] = {
       hours,
-      clockIn: clockInTime || '',
+      clockIn: clockInTime || "",
+      clockOut: clockOutTime || "", // ← NEW
       sync_id: syncId,
       updated_at: timestamp,
-      synced: false
+      synced: false,
     };
-    
-    // Salvar de volta no localStorage
+
     localStorage.setItem(WORK_HOURS_KEY, JSON.stringify(workHours));
   }
-  
-  // Adicionar à fila de pendências para sincronização futura
+
+  // ── Add record to the pending sync queue ─────────────────────────────────────
   addToPendingSync(workHourData) {
-    // Obter fila atual
     const storedQueue = localStorage.getItem(PENDING_SYNC_KEY);
     let pendingQueue = storedQueue ? JSON.parse(storedQueue) : [];
-    
-    // Verificar se já existe um item para esta data
-    const existingIndex = pendingQueue.findIndex(item => 
-      item.workDate === workHourData.workDate && item.userId === workHourData.userId
+
+    const existingIndex = pendingQueue.findIndex(
+      (item) =>
+        item.workDate === workHourData.workDate &&
+        item.userId === workHourData.userId
     );
-    
+
     if (existingIndex >= 0) {
-      // Atualizar existente
       pendingQueue[existingIndex] = workHourData;
     } else {
-      // Adicionar novo
       pendingQueue.push(workHourData);
     }
-    
-    // Salvar fila atualizada
+
     localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify(pendingQueue));
   }
-  
-  // Marcar um registro como sincronizado
+
+  // ── Mark a record as synced ──────────────────────────────────────────────────
   markAsSynced(syncId, serverTimestamp) {
-    // Atualizar no workHours
     const storedData = localStorage.getItem(WORK_HOURS_KEY);
     if (storedData) {
       let workHours = JSON.parse(storedData);
-      
-      // Encontrar a data que corresponde a este syncId
-      Object.keys(workHours).forEach(date => {
+      Object.keys(workHours).forEach((date) => {
         if (workHours[date].sync_id === syncId) {
           workHours[date].synced = true;
-          workHours[date].server_updated_at = serverTimestamp || new Date().toISOString();
+          workHours[date].server_updated_at =
+            serverTimestamp || new Date().toISOString();
         }
       });
-      
       localStorage.setItem(WORK_HOURS_KEY, JSON.stringify(workHours));
     }
-    
-    // Remover da fila de pendências
+
     const storedQueue = localStorage.getItem(PENDING_SYNC_KEY);
     if (storedQueue) {
       let pendingQueue = JSON.parse(storedQueue);
-      pendingQueue = pendingQueue.filter(item => item.sync_id !== syncId);
+      pendingQueue = pendingQueue.filter((item) => item.sync_id !== syncId);
       localStorage.setItem(PENDING_SYNC_KEY, JSON.stringify(pendingQueue));
     }
   }
-  
-  // Sincronizar todos os registros pendentes
+
+  // ── Sync all pending records with the server ─────────────────────────────────
   async syncPendingRecords(userId) {
     const storedQueue = localStorage.getItem(PENDING_SYNC_KEY);
     if (!storedQueue) return { success: true, count: 0 };
-    
+
     const pendingQueue = JSON.parse(storedQueue);
     if (pendingQueue.length === 0) return { success: true, count: 0 };
-    
+
     try {
-      // Enviar todos os registros pendentes de uma vez
+      // clockOutTime is already part of each queued record (added above)
       const response = await apiService.syncWorkHours(userId, pendingQueue);
-      
-      // Processar resultados
+
       if (response.data.results) {
         const results = response.data.results;
         let successCount = 0;
-        
-        results.forEach(result => {
+
+        results.forEach((result) => {
           if (result.success) {
             this.markAsSynced(result.sync_id, result.server_updated_at);
             successCount++;
           }
         });
-        
-        // Atualizar timestamp da última sincronização
+
         localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
-        
+
         return {
           success: true,
           count: successCount,
           total: pendingQueue.length,
-          remaining: pendingQueue.length - successCount
+          remaining: pendingQueue.length - successCount,
         };
       }
-      
-      return { success: false, error: 'Formato de resposta inválido' };
+
+      return { success: false, error: "Invalid response format" };
     } catch (error) {
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: error.message,
         count: 0,
-        total: pendingQueue.length
+        total: pendingQueue.length,
       };
     }
   }
-  
-  // Verificar se há registros pendentes de sincronização
+
   hasPendingSync() {
     const storedQueue = localStorage.getItem(PENDING_SYNC_KEY);
     if (!storedQueue) return false;
-    
-    const pendingQueue = JSON.parse(storedQueue);
-    return pendingQueue.length > 0;
+    return JSON.parse(storedQueue).length > 0;
   }
-  
-  // Obter contagem de registros pendentes
+
   getPendingSyncCount() {
     const storedQueue = localStorage.getItem(PENDING_SYNC_KEY);
     if (!storedQueue) return 0;
-    
-    const pendingQueue = JSON.parse(storedQueue);
-    return pendingQueue.length;
+    return JSON.parse(storedQueue).length;
   }
-  
-  // Limpar todos os dados locais (útil para logout ou reset)
+
   clearAllLocalData() {
     localStorage.removeItem(PENDING_SYNC_KEY);
     localStorage.removeItem(WORK_HOURS_KEY);
     localStorage.removeItem(LAST_SYNC_KEY);
   }
-  
-  // Obter a data da última sincronização
+
   getLastSyncTime() {
     return localStorage.getItem(LAST_SYNC_KEY);
   }

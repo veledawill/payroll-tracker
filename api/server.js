@@ -241,16 +241,14 @@ app.get("/api/work-hours/:userId/:periodId", async (req, res) => {
       (h) => h.holiday_date.toISOString().split("T")[0]
     );
 
-    // Generate all dates in the period, excluding Sundays
+    // Generate all dates in the period, including Sundays
     const days = [];
     for (
       let day = new Date(period.start_date);
       day <= new Date(period.end_date);
       day.setDate(day.getDate() + 1)
     ) {
-      if (day.getDay() !== 0) {
-        days.push(day.toISOString().split("T")[0]);
-      }
+      days.push(day.toISOString().split("T")[0]);
     }
 
     const workHours = await WorkHour.find({
@@ -272,6 +270,7 @@ app.get("/api/work-hours/:userId/:periodId", async (req, res) => {
         dayOfWeek,
         isHoliday: holidayDates.includes(dateStr),
         isSaturday: dayOfWeek === 6,
+        isSunday: dayOfWeek === 0, // ← NOVO
         dayName: date.toLocaleDateString("en-US", { weekday: "long" }),
         formattedDate: date.toLocaleDateString("en-US", {
           month: "short",
@@ -279,6 +278,7 @@ app.get("/api/work-hours/:userId/:periodId", async (req, res) => {
         }),
         hours: wh ? wh.hours_worked : 0,
         clock_in_time: wh?.clock_in_time || "",
+        clock_out_time: wh?.clock_out_time || "", // ← NOVO
         sync_id: wh?.sync_id || null,
       };
     });
@@ -293,7 +293,8 @@ app.get("/api/work-hours/:userId/:periodId", async (req, res) => {
 // Save or update work hours for a specific date
 app.post("/api/work-hours", async (req, res) => {
   try {
-    const { userId, workDate, hours, clockInTime, sync_id } = req.body;
+    const { userId, workDate, hours, clockInTime, clockOutTime, sync_id } =
+      req.body;
 
     if (!userId || !workDate || hours === undefined) {
       return res.status(400).json({ error: "Incomplete data" });
@@ -310,6 +311,8 @@ app.post("/api/work-hours", async (req, res) => {
     if (workHour) {
       workHour.hours_worked = hours;
       workHour.clock_in_time = clockInTime || workHour.clock_in_time;
+      workHour.clock_out_time =
+        clockOutTime !== undefined ? clockOutTime : workHour.clock_out_time; // ← NOVO
       workHour.updated_at = new Date();
       workHour.last_synced = new Date();
       if (sync_id) workHour.sync_id = sync_id;
@@ -320,6 +323,7 @@ app.post("/api/work-hours", async (req, res) => {
         work_date: workDate,
         hours_worked: hours,
         clock_in_time: clockInTime || "",
+        clock_out_time: clockOutTime || "", // ← NOVO
         last_synced: new Date(),
         sync_id: sync_id || undefined,
       }).save();
@@ -353,7 +357,13 @@ app.post("/api/sync-work-hours", async (req, res) => {
     const results = [];
 
     for (const hourData of hours) {
-      const { workDate, hours: hoursWorked, clockInTime, sync_id } = hourData;
+      const {
+        workDate,
+        hours: hoursWorked,
+        clockInTime,
+        clockOutTime,
+        sync_id,
+      } = hourData;
 
       if (!workDate || hoursWorked === undefined || !sync_id) {
         results.push({
@@ -376,6 +386,10 @@ app.post("/api/sync-work-hours", async (req, res) => {
           if (clientUpdatedAt > new Date(workHour.updated_at || 0)) {
             workHour.hours_worked = hoursWorked;
             workHour.clock_in_time = clockInTime || workHour.clock_in_time;
+            workHour.clock_out_time =
+              clockOutTime !== undefined
+                ? clockOutTime
+                : workHour.clock_out_time;
             workHour.updated_at = new Date();
             workHour.last_synced = new Date();
             workHour.sync_id = sync_id;
@@ -387,6 +401,7 @@ app.post("/api/sync-work-hours", async (req, res) => {
             work_date: workDate,
             hours_worked: hoursWorked,
             clock_in_time: clockInTime || "",
+            clock_out_time: clockOutTime || "", // ← NOVO
             last_synced: new Date(),
             sync_id,
           }).save();
@@ -447,47 +462,46 @@ app.get("/api/weekly-stats/:userId/:periodId", async (req, res) => {
       const dateStr = currentDate.toISOString().split("T")[0];
       const dayOfWeek = currentDate.getUTCDay();
 
-      if (dayOfWeek !== 0) {
-        // Skip Sundays
-        const isHoliday = holidayDates.includes(dateStr);
-        const isSaturday = dayOfWeek === 6;
+      const isHoliday = holidayDates.includes(dateStr);
+      const isSaturday = dayOfWeek === 6;
+      const isSunday = dayOfWeek === 0;
 
-        // Calculate the Monday of the current week
-        const monday = new Date(currentDate);
-        monday.setUTCHours(0, 0, 0, 0);
-        monday.setUTCDate(monday.getUTCDate() - ((dayOfWeek + 6) % 7));
-        const mondayStr = monday.toISOString().split("T")[0];
+      const monday = new Date(currentDate);
+      monday.setUTCHours(0, 0, 0, 0);
+      monday.setUTCDate(monday.getUTCDate() - ((dayOfWeek + 6) % 7));
+      const mondayStr = monday.toISOString().split("T")[0];
 
-        const saturday = new Date(monday);
-        saturday.setUTCDate(saturday.getUTCDate() + 5);
-        const saturdayStr = saturday.toISOString().split("T")[0];
+      // Week ends on Sunday (Monday + 6), was Saturday (Monday + 5)
+      const sunday = new Date(monday);
+      sunday.setUTCDate(sunday.getUTCDate() + 6);
+      const sundayStr = sunday.toISOString().split("T")[0];
 
-        if (!weekMap.has(mondayStr)) {
-          weekMap.set(mondayStr, {
-            start: mondayStr,
-            end: saturdayStr,
-            days: [],
-            totalHours: 0,
-            grossSalary: 0,
-          });
-        }
-
-        const week = weekMap.get(mondayStr);
-        const wh = workHours.find(
-          (w) => w.work_date.toISOString().split("T")[0] === dateStr
-        );
-        const hours = wh ? wh.hours_worked : 0;
-
-        week.days.push({
-          date: dateStr,
-          dayOfWeek,
-          isHoliday,
-          isSaturday,
-          hours,
+      if (!weekMap.has(mondayStr)) {
+        weekMap.set(mondayStr, {
+          start: mondayStr,
+          end: sundayStr,
+          days: [],
+          totalHours: 0,
+          grossSalary: 0,
         });
-        week.totalHours += hours;
-        week.grossSalary += hours * hourlyRate;
       }
+
+      const week = weekMap.get(mondayStr);
+      const wh = workHours.find(
+        (w) => w.work_date.toISOString().split("T")[0] === dateStr
+      );
+      const hours = wh ? wh.hours_worked : 0;
+
+      week.days.push({
+        date: dateStr,
+        dayOfWeek,
+        isHoliday,
+        isSaturday,
+        isSunday,
+        hours,
+      });
+      week.totalHours += hours;
+      week.grossSalary += hours * hourlyRate;
 
       currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }

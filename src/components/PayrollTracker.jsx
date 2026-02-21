@@ -128,18 +128,14 @@ const PayrollTracker = () => {
         // Converter formato de armazenamento para formato de uso
         Object.keys(parsedHours).forEach(date => {
           if (typeof parsedHours[date] === 'object') {
-            // New format with clock-in time
-            hours[date] = {
-              hours: parsedHours[date].hours || 0,
-              clockIn: parsedHours[date].clockIn || ''
-            };
-          } else {
-            // Legacy format (just hours)
-            hours[date] = {
-              hours: parsedHours[date] || 0,
-              clockIn: ''
-            };
-          }
+  hours[date] = {
+    hours:    parsedHours[date].hours    || 0,
+    clockIn:  parsedHours[date].clockIn  || '',
+    clockOut: parsedHours[date].clockOut || ''  // ← NOVO
+  };
+} else {
+  hours[date] = { hours: parsedHours[date] || 0, clockIn: '', clockOut: '' };
+}
         });
         
         setWorkHours(hours);
@@ -161,16 +157,16 @@ const PayrollTracker = () => {
           
           // Transformar para o formato esperado pelo componente
           const hoursMap = {};
-          hoursResponse.data.forEach(day => {
-            if (day.date) {
-              hoursMap[day.date] = {
-                hours: day.hours || 0,
-                clockIn: day.clock_in_time || ''
-              };
-            }
-          });
-          
-          setWorkHours(hoursMap);
+hoursResponse.data.forEach(day => {
+  if (day.date) {
+    hoursMap[day.date] = {
+      hours:    day.hours           || 0,
+      clockIn:  day.clock_in_time  || '',
+      clockOut: day.clock_out_time || ''  
+    };
+  }
+});
+setWorkHours(hoursMap);
         } catch (error) {
           console.error('Erro ao carregar horas de trabalho:', error);
           setIsOffline(true);
@@ -238,19 +234,19 @@ const PayrollTracker = () => {
       const dateStr = day.toISOString().split('T')[0];
       const dayOfWeek = day.getUTCDay(); // 👈 Use 'day' not 'date'
       
-      // Skip only Sundays (0), include Saturdays (6)
-      if (dayOfWeek !== 0) {
-        const isHoliday = publicHolidays.includes(dateStr);
-        const isSaturday = dayOfWeek === 6;
-        days.push({
-          date: dateStr,
-          dayOfWeek,
-          isHoliday,
-          isSaturday,
-          dayName: new Date(dateStr).toLocaleDateString('en-AU', { weekday: 'long' }),
-          formattedDate: new Date(dateStr).toLocaleDateString('en-AU', { month: 'short', day: 'numeric' })
-        });
-      }
+      // All days included — Saturdays and Sundays are shown as Weekend
+const isHoliday  = publicHolidays.includes(dateStr);
+const isSaturday = dayOfWeek === 6;
+const isSunday   = dayOfWeek === 0;  // ← NOVO
+days.push({
+  date: dateStr,
+  dayOfWeek,
+  isHoliday,
+  isSaturday,
+  isSunday,  // ← NOVO
+  dayName:       new Date(dateStr).toLocaleDateString('en-AU', { weekday: 'long' }),
+  formattedDate: new Date(dateStr).toLocaleDateString('en-AU', { month: 'short', day: 'numeric' })
+});
     }
     
     return days;
@@ -276,23 +272,22 @@ const PayrollTracker = () => {
       monday.setUTCDate(monday.getUTCDate() - daysFromMonday);
       const weekKey = monday.toISOString().split('T')[0];
       
-      // Calculate Saturday for this week (Monday + 5 days)
-      const saturday = new Date(monday);
-      saturday.setUTCDate(saturday.getUTCDate() + 5);
-      const saturdayStr = saturday.toISOString().split('T')[0];
-      
-      // Create week if doesn't exist
-      if (!weekMap.has(weekKey)) {
-        weekMap.set(weekKey, {
-          start: weekKey,
-          end: saturdayStr,
-          days: [],
-          totalHours: 0,
-          totalSalary: 0,
-          grossSalary: 0,
-          tax: 0
-        });
-      }
+      // Week ends on Sunday (Monday + 6 days)
+const sunday = new Date(monday);
+sunday.setUTCDate(sunday.getUTCDate() + 6);   // ← era + 5
+const sundayStr = sunday.toISOString().split('T')[0];
+
+if (!weekMap.has(weekKey)) {
+  weekMap.set(weekKey, {
+    start: weekKey,
+    end: sundayStr,   // ← era saturdayStr
+    days: [],
+    totalHours: 0,
+    totalSalary: 0,
+    grossSalary: 0,
+    tax: 0
+  });
+}
       
       const weekData = weekMap.get(weekKey);
       const workData = workHours[day.date];
@@ -3307,17 +3302,19 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
     
     // Update local state immediately for responsive UX - preserve existing clock-in time
     setWorkHours(prev => {
-      const existingData = prev[date];
-      const existingClockIn = typeof existingData === 'object' ? existingData.clockIn || '' : '';
-      
-      return {
-        ...prev,
-        [date]: {
-          hours: parsedHours,
-          clockIn: existingClockIn
-        }
-      };
-    });
+  const existingData     = prev[date];
+  const existingClockIn  = typeof existingData === 'object' ? existingData.clockIn  || '' : '';
+  const existingClockOut = typeof existingData === 'object' ? existingData.clockOut || '' : '';  // ← NOVO
+
+  return {
+    ...prev,
+    [date]: {
+      hours:    parsedHours,
+      clockIn:  existingClockIn,
+      clockOut: existingClockOut  // ← NOVO
+    }
+  };
+});
     
     // Usar o serviço de sincronização que vai gerenciar tanto online quanto offline
     try {
@@ -3332,23 +3329,49 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
   async function handleClockInChange(date, clockInTime) {
     // Update local state immediately for responsive UX - preserve existing hours
     setWorkHours(prev => {
-      const existingData = prev[date];
-      const existingHours = typeof existingData === 'object' ? existingData.hours || 0 : existingData || 0;
-      
-      return {
-        ...prev,
-        [date]: {
-          hours: existingHours,
-          clockIn: clockInTime
-        }
-      };
-    });
+  const existingData     = prev[date];
+  const existingHours    = typeof existingData === 'object' ? existingData.hours    || 0  : existingData || 0;
+  const existingClockOut = typeof existingData === 'object' ? existingData.clockOut || '' : '';
+
+  return {
+    ...prev,
+    [date]: {
+      hours:    existingHours,
+      clockIn:  clockInTime,
+      clockOut: existingClockOut  // ← NOVO
+    }
+  };
+});
     
     // Save clock-in time using sync service
     try {
       await syncService.saveClockInTime(DEFAULT_USER_ID, date, clockInTime);
     } catch (err) {
       console.error('Erro ao salvar horário de entrada:', err);
+    }
+  }
+
+  // Handle clock-out time change for a specific day
+  async function handleClockOutChange(date, clockOutTime) {
+    setWorkHours(prev => {
+      const existingData    = prev[date];
+      const existingHours   = typeof existingData === 'object' ? existingData.hours   || 0  : existingData || 0;
+      const existingClockIn = typeof existingData === 'object' ? existingData.clockIn || '' : '';
+
+      return {
+        ...prev,
+        [date]: {
+          hours:    existingHours,
+          clockIn:  existingClockIn,
+          clockOut: clockOutTime
+        }
+      };
+    });
+
+    try {
+      await syncService.saveClockOutTime(DEFAULT_USER_ID, date, clockOutTime);
+    } catch (err) {
+      console.error('Error saving clock-out time:', err);
     }
   }
 
@@ -3435,7 +3458,7 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
   async function resetPeriodHours() {
     if (!selectedPeriod) return;
     
-    if (window.confirm('Resetar todas as horas para este período de pagamento?')) {
+    if (window.confirm('Reset all hours for this pay period?')) {
       // Local implementation to work offline
       const daysInPeriod = getDaysInPeriod();
       const newWorkHours = {...workHours};
@@ -3683,25 +3706,29 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-gray-400 border-b border-gray-700">
-                      <th className="text-left py-2 w-20">Day</th>
-                      <th className="text-left py-2 w-24">Date</th>
-                      <th className="text-left py-2 w-24">Clock-in</th>
-                      <th className="text-right py-2 w-20">Hours</th>
-                    </tr>
+  <th className="text-left py-2 w-20">Day</th>
+  <th className="text-left py-2 w-24">Date</th>
+  <th className="text-left py-2 w-28">Clock-In</th>
+  <th className="text-left py-2 w-28">Clock-Out</th> 
+  <th className="text-right py-2 w-20">Hours</th>
+</tr>
                   </thead>
                   <tbody>
                     {week.days.map(day => {
-                      const workData = workHours[day.date];
-                      const hours = typeof workData === 'object' ? workData.hours || 0 : workData || 0;
-                      const clockIn = typeof workData === 'object' ? workData.clockIn || '' : '';
-                      
-                      return (
-                        <tr key={day.date} className={`border-b border-gray-700 last:border-0 ${day.isHoliday ? 'text-red-400' : ''} ${day.isSaturday ? 'text-yellow-400' : ''}`}>
+  const workData  = workHours[day.date];
+  const hours     = typeof workData === 'object' ? workData.hours    || 0  : workData || 0;
+  const clockIn   = typeof workData === 'object' ? workData.clockIn  || '' : '';
+  const clockOut  = typeof workData === 'object' ? workData.clockOut || '' : '';  // ← NOVO
+
+  return (
+    <tr key={day.date} className={`border-b border-gray-700 last:border-0 ${day.isHoliday ? 'text-red-400' : ''} ${(day.isSaturday || day.isSunday) ? 'text-yellow-400' : ''}`}>
                           <td className="py-2 w-20">{day.dayName}</td>
                           <td className="py-2 w-24">
                             {day.formattedDate}
                             {day.isHoliday && <span className="ml-2 text-xs bg-red-900 text-red-200 px-1 rounded">Holiday</span>}
-                            {day.isSaturday && <span className="ml-2 text-xs bg-yellow-900 text-yellow-200 px-1 rounded">Weekend</span>}
+                            {(day.isSaturday || day.isSunday) && (
+  <span className="ml-2 text-xs bg-yellow-900 text-yellow-200 px-1 rounded">Weekend</span>
+)}
                           </td>
                           <td className="py-2 w-24">
                             <input
@@ -3712,6 +3739,14 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
                               placeholder="HH:MM"
                             />
                           </td>
+                          <td className="py-2 w-28">
+  <input
+    type="time"
+    className="bg-gray-700 text-white border border-gray-600 rounded p-1 text-sm w-full max-w-[120px]"
+    value={clockOut}
+    onChange={(e) => handleClockOutChange(day.date, e.target.value)}
+  />
+</td>
                           <td className="py-2 text-right w-20">
                             <select
                               className="bg-gray-700 text-white border border-gray-600 rounded p-1"

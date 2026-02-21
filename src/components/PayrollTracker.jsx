@@ -27,7 +27,7 @@ const PayrollTracker = () => {
   const [apiStatus, setApiStatus] = useState({ status: 'unknown', message: 'Verificando conexão...' });
   const [totalStats, setTotalStats] = useState({ hours: 0, salary: 0, grossSalary: 0, tax: 0 });
   const [showRateInfo, setShowRateInfo] = useState(true);
-  const [hourlyRate, setHourlyRate] = useState(34); // Changed default to 34
+  const [hourlyRate, setHourlyRate] = useState(30);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isOffline, setIsOffline] = useState(false);
@@ -79,17 +79,17 @@ const PayrollTracker = () => {
         };
         setSelectedPeriod(currentPeriod);
         
-        // Carregar taxa horária - Force to 34 if different
+        // Carregar taxa horária - Force to 30 if different
         try {
           const rateResponse = await apiService.getHourlyRate(DEFAULT_USER_ID);
           const fetchedRate = rateResponse.data.hourly_rate;
           console.log('Fetched hourly rate:', fetchedRate);
-          // Always use 34
-          setHourlyRate(34);
+          // Always use 30
+          setHourlyRate(30);
         } catch (rateError) {
           console.error('Error fetching hourly rate:', rateError);
-          // Use default 34
-          setHourlyRate(34);
+          // Use default 30
+          setHourlyRate(30);
         }
         
         // Carregar feriados para 2025
@@ -116,8 +116,8 @@ const PayrollTracker = () => {
   // Função para carregar dados do localStorage como backup
   const loadFromLocalStorage = () => {
     try {
-      // Always set hourly rate to 34 in offline mode
-      setHourlyRate(34);
+      // Always set hourly rate to 30 in offline mode
+      setHourlyRate(30);
       
       // Carregar horas de trabalho
       const storedHours = localStorage.getItem('lass_work_hours');
@@ -257,7 +257,7 @@ days.push({
     
     const days = getDaysInPeriod();
     const weekMap = new Map();
-    const calculationRate = 34;
+    const calculationRate = 30;
     
     days.forEach(day => {
       // 'day' is already an object with date string and dayOfWeek

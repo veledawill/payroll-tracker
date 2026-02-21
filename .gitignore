@@ -1,6 +1,5 @@
 node_modules/
 build/
-
 .env
-
 api/.env
+.DS_Store

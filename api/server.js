@@ -1,3 +1,4 @@
+const { calculateTax } = require("./taxTable");
 // server.js - Express server with MongoDB for Payroll Tracker
 const express = require("express");
 const cors = require("cors");
@@ -514,23 +515,7 @@ app.get("/api/weekly-stats/:userId/:periodId", async (req, res) => {
       0
     );
 
-    // Calculate total tax
-    let totalTax = 0;
-    if (totalGrossSalary > 0) {
-      if (totalGrossSalary > 12675.0) {
-        if (totalGrossSalary < 15829.67) {
-          totalTax = 3393.0 + (totalGrossSalary - 12675.0) * 0.39;
-        } else {
-          totalTax = 4624.0 + (totalGrossSalary - 15829.66) * 0.47;
-        }
-      } else {
-        const taxBracket = await TaxBracket.findOne({
-          earnings: { $lte: totalGrossSalary },
-          effective_from: { $lte: new Date() },
-        }).sort({ earnings: -1 });
-        totalTax = taxBracket ? taxBracket.with_tax : 0;
-      }
-    }
+    const totalTax = calculateTax(totalGrossSalary);
 
     // Distribute tax proportionally across weeks
     weeklyStats.forEach((week) => {

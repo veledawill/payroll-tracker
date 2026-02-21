@@ -31,10 +31,7 @@ const rl = readline.createInterface({
 // Conectar ao MongoDB
 async function connectDB() {
   try {
-    await mongoose.connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(MONGODB_URI);
     console.log("Conectado ao MongoDB em:", MONGODB_URI);
     return true;
   } catch (error) {
@@ -235,70 +232,20 @@ async function createInitialData() {
     // Tabela de impostos (ATO PAYG NAT 1007 - julho 2024)
     console.log("Criando tabela de imposto...");
     const taxBrackets = [
-      { minWeekly: 0, maxWeekly: 359, taxRate: 0, fixedAmount: 0, year: 2026 },
-      {
-        minWeekly: 360,
-        maxWeekly: 438,
-        taxRate: 0.19,
-        fixedAmount: 0,
-        year: 2026,
-      },
-      {
-        minWeekly: 439,
-        maxWeekly: 548,
-        taxRate: 0.19,
-        fixedAmount: 3,
-        year: 2026,
-      },
-      {
-        minWeekly: 549,
-        maxWeekly: 721,
-        taxRate: 0.19,
-        fixedAmount: 16,
-        year: 2026,
-      },
-      {
-        minWeekly: 722,
-        maxWeekly: 865,
-        taxRate: 0.325,
-        fixedAmount: 44,
-        year: 2026,
-      },
-      {
-        minWeekly: 866,
-        maxWeekly: 1282,
-        taxRate: 0.325,
-        fixedAmount: 55,
-        year: 2026,
-      },
-      {
-        minWeekly: 1283,
-        maxWeekly: 1538,
-        taxRate: 0.325,
-        fixedAmount: 57,
-        year: 2026,
-      },
-      {
-        minWeekly: 1539,
-        maxWeekly: 1923,
-        taxRate: 0.37,
-        fixedAmount: 127,
-        year: 2026,
-      },
-      {
-        minWeekly: 1924,
-        maxWeekly: 3461,
-        taxRate: 0.37,
-        fixedAmount: 152,
-        year: 2026,
-      },
-      {
-        minWeekly: 3462,
-        maxWeekly: 9999,
-        taxRate: 0.45,
-        fixedAmount: 430,
-        year: 2026,
-      },
+      { earnings: 0, with_tax: 0, effective_from: "2026-01-01" },
+      { earnings: 1576.0, with_tax: 0, effective_from: "2026-01-01" },
+      { earnings: 1577.33, with_tax: 4.0, effective_from: "2026-01-01" },
+      { earnings: 1603.33, with_tax: 9.0, effective_from: "2026-01-01" },
+      { earnings: 1633.67, with_tax: 13.0, effective_from: "2026-01-01" },
+      { earnings: 2000.0, with_tax: 87.0, effective_from: "2026-01-01" },
+      { earnings: 3000.0, with_tax: 312.0, effective_from: "2026-01-01" },
+      { earnings: 4000.0, with_tax: 572.0, effective_from: "2026-01-01" },
+      { earnings: 5000.0, with_tax: 823.0, effective_from: "2026-01-01" },
+      { earnings: 6000.0, with_tax: 1057.0, effective_from: "2026-01-01" },
+      { earnings: 8000.0, with_tax: 1564.0, effective_from: "2026-01-01" },
+      { earnings: 10000.0, with_tax: 2396.0, effective_from: "2026-01-01" },
+      { earnings: 12000.0, with_tax: 3072.0, effective_from: "2026-01-01" },
+      { earnings: 12675.0, with_tax: 3393.0, effective_from: "2026-01-01" },
     ];
 
     await TaxBracket.insertMany(taxBrackets);

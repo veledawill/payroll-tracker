@@ -137,6 +137,12 @@ This app is ideal for:
 
 ---
 
+## 👨‍💻 Author
+
+Developed by **William Veleda** — [veleda.will@gmail.com](mailto:veleda.will@gmail.com)
+
+---
+
 ## 📄 License
 
 MIT — free to use, modify, and distribute.

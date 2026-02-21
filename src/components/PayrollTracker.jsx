@@ -3782,7 +3782,7 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
       {/* Footer */}
       <footer className="bg-gray-800 p-4 border-t border-gray-700">
         <div className="container mx-auto text-sm text-gray-400 text-center">
-          <p>Payroll Tracker 2026</p>
+          <p>Payroll Tracker 2026 — Developed by <a href="mailto:veleda.will@gmail.com" className="text-blue-400 hover:text-blue-300 transition-colors">William Veleda</a></p>
 <p className="mt-1 text-xs flex items-center justify-center">
   <span className="mr-2">Hourly Rate: AUD $30</span>
   <span className="flex items-center">

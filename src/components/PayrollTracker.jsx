@@ -3452,16 +3452,16 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
         try {
           await apiService.resetPeriodHours(DEFAULT_USER_ID, selectedPeriod.id);
         } catch (err) {
-          console.error('Erro ao resetar horas do período no servidor:', err);
+          console.error('Error resetting period hours on the server:', err);
           setIsOffline(true);
           
-          // Como estamos offline, temos que zerar cada dia individualmente
+          // Offline — reset each day individually
           for (const day of daysInPeriod) {
             await syncService.saveWorkHours(DEFAULT_USER_ID, day.date, 0);
           }
         }
       } else {
-        // Como já estamos offline, temos que zerar cada dia individualmente
+        // Already offline — reset each day individually
         for (const day of daysInPeriod) {
           await syncService.saveWorkHours(DEFAULT_USER_ID, day.date, 0);
         }
@@ -3469,7 +3469,7 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
     }
   }
 
-  // Notificação de mudança de status offline/online
+  // Callback for offline/online status changes
   const handleOfflineStatusChange = (status) => {
     setIsOffline(status);
   };
@@ -3478,7 +3478,7 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-900 text-white font-sans flex items-center justify-center">
-        <div className="text-xl">Carregando...</div>
+        <div className="text-xl">Loading...</div>
       </div>
     );
   }
@@ -3487,7 +3487,7 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
   if (!selectedPeriod) {
     return (
       <div className="min-h-screen bg-gray-900 text-white font-sans flex items-center justify-center">
-        <div className="text-xl">Erro: Período não encontrado</div>
+        <div className="text-xl">Error: Pay period not found</div>
       </div>
     );
   }
@@ -3495,7 +3495,7 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
   
   return (
     <div className="min-h-screen bg-gray-900 text-white font-sans">
-      {/* Gerenciador de modo offline */}
+      {/* Offline Mode Manager */}
       <OfflineManager onStatusChange={handleOfflineStatusChange} />
       
       {/* Header */}
@@ -3503,15 +3503,15 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center">
             <div className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-blue-600">
-              LASS
-            </div>
-            <span className="ml-2 text-sm text-blue-300">Land Air Sea Space</span>
+  PT
+</div>
+<span className="ml-2 text-sm text-blue-300">Payroll Tracker</span>
           </div>
-          <h1 className="text-xl font-bold">Payroll Tracker 2025</h1>
+          <h1 className="text-xl font-bold">Payroll Tracker 2026</h1>
         </div>
       </header>
       
-      {/* Status da API */}
+      {/* API Status */}
       {apiStatus.status !== 'connected' && (
         <div className={`bg-${apiStatus.status === 'error' ? 'red' : 'yellow'}-800 text-white p-2 text-center text-sm my-2`}>
           Status da API: {apiStatus.message}
@@ -3654,7 +3654,7 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
               <span>Gross Salary: AUD ${totalStats.grossSalary.toFixed(2)}</span>
               <span>Tax (PAYG): AUD ${totalStats.tax.toFixed(2)}</span>
               {showRateInfo && (
-                <span className="mt-1">Based on $34/hour</span>
+                <span className="mt-1">Based on $30/hour</span>
               )}
             </div>
           </div>
@@ -3771,7 +3771,7 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
                 <span className="text-blue-400 mr-2">•</span>
                 <div className="flex items-center">
                   {isOffline ? <CloudOff size={14} className="mr-1 text-red-400" /> : <Database size={14} className="mr-1 text-green-400" />}
-                  <span>{isOffline ? 'Dados armazenados localmente e serão sincronizados quando houver conexão.' : 'Dados armazenados no MongoDB com backup local para uso offline.'}</span>
+                  <span>{isOffline ? 'Data stored locally and will sync when connection is restored.' : 'Data stored in MongoDB with local backup for offline use.'}</span>
                 </div>
               </li>
             </ul>
@@ -3782,14 +3782,14 @@ for (let i = 0; i < taxTableSimplified.length; i++) {
       {/* Footer */}
       <footer className="bg-gray-800 p-4 border-t border-gray-700">
         <div className="container mx-auto text-sm text-gray-400 text-center">
-          <p>LASS Payroll Tracker | Land Air Sea Space | 2025</p>
-          <p className="mt-1 text-xs flex items-center justify-center">
-            <span className="mr-2">Hourly Rate: AUD $34</span>
-            <span className="flex items-center">
-              {isOffline ? <CloudOff size={14} className="mr-1 text-red-400" /> : <Database size={14} className="mr-1 text-green-400" />}
-              {isOffline ? 'Modo Offline - Dados armazenados localmente' : 'Conectado ao MongoDB'}
-            </span>
-          </p>
+          <p>Payroll Tracker 2026</p>
+<p className="mt-1 text-xs flex items-center justify-center">
+  <span className="mr-2">Hourly Rate: AUD $30</span>
+  <span className="flex items-center">
+    {isOffline ? <CloudOff size={14} className="mr-1 text-red-400" /> : <Database size={14} className="mr-1 text-green-400" />}
+    {isOffline ? 'Offline — Data stored locally' : 'Connected to MongoDB'}
+  </span>
+</p>
         </div>
       </footer>
     </div>

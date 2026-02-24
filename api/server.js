@@ -14,8 +14,6 @@ const PayrollPeriod = require("./models/PayrollPeriod");
 const WorkHour = require("./models/WorkHour");
 const PublicHoliday = require("./models/PublicHoliday");
 const RateSetting = require("./models/RateSetting");
-const TaxBracket = require("./models/TaxBracket");
-
 const app = express();
 const PORT = process.env.PORT || 3003;
 

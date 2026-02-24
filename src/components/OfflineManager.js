@@ -67,31 +67,33 @@ const OfflineManager = ({ onStatusChange }) => {
     try {
       await apiService.getStatus();
       if (isOffline) {
-        // Connection restored
         setIsOffline(false);
+        if (onStatusChange) onStatusChange(false);
         syncPendingData();
       }
     } catch (error) {
       setIsOffline(true);
+      if (onStatusChange) onStatusChange(true);
     }
   };
 
-  // Sync pending records
   const syncPendingData = async () => {
     if (isSyncing || pendingCount === 0) return;
 
     try {
       setIsSyncing(true);
-      // Using ID 1 as default (in a real implementation, use the logged-in user's ID)
-      const result = await syncService.syncPendingRecords("1");
+      const result = await syncService.syncPendingRecords(
+        "69993e98685c417bb546fbd0"
+      );
 
       setPendingCount(syncService.getPendingSyncCount());
       setLastSync(syncService.getLastSyncTime());
 
-      // If no more pending records, hide banner after 5 seconds
+      if (onStatusChange) onStatusChange(false);
+
       if (syncService.getPendingSyncCount() === 0) {
         setTimeout(() => {
-          setShowBanner(isOffline); // Keep visible only if offline
+          setShowBanner(isOffline);
         }, 5000);
       }
     } catch (error) {
@@ -113,59 +115,52 @@ const OfflineManager = ({ onStatusChange }) => {
 
   return (
     <div
-      className={`fixed bottom-0 left-0 right-0 p-3 ${
+      className={`fixed bottom-6 right-6 p-3 rounded-lg ${
         isOffline
           ? "bg-red-900"
           : pendingCount > 0
           ? "bg-yellow-900"
           : "bg-green-900"
-      } text-white shadow-lg z-50 flex items-center justify-between`}
+      } text-white shadow-xl z-50 flex items-center gap-3 max-w-sm`}
     >
-      <div className="flex items-center">
+      {isOffline ? (
+        <WifiOff size={18} className="shrink-0" />
+      ) : pendingCount > 0 ? (
+        <AlertCircle size={18} className="shrink-0" />
+      ) : (
+        <CheckCircle size={18} className="shrink-0" />
+      )}
+
+      <div className="text-sm">
         {isOffline ? (
-          <WifiOff size={20} className="mr-2" />
+          <span>Offline — Data saved locally</span>
         ) : pendingCount > 0 ? (
-          <AlertCircle size={20} className="mr-2" />
+          <span>{pendingCount} record(s) pending sync</span>
         ) : (
-          <CheckCircle size={20} className="mr-2" />
+          <span>All data synced</span>
         )}
-
-        <div>
-          {isOffline ? (
-            <span>Offline Mode — Data will be saved locally</span> // ← was: 'Modo Offline - Os dados serão salvos localmente'
-          ) : pendingCount > 0 ? (
-            <span>{pendingCount} record(s) pending synchronization</span> // ← was: 'registro(s) pendente(s) de sincronização'
-          ) : (
-            <span>All data is synced</span> // ← was: 'Todos os dados estão sincronizados'
-          )}
-
-          {lastSync && (
-            <div className="text-xs opacity-80">
-              Last sync: {formatLastSync()}{" "}
-              {/* ← was: 'Última sincronização:' */}
-            </div>
-          )}
-        </div>
+        {lastSync && (
+          <div className="text-xs opacity-70 mt-0.5">
+            Last sync: {formatLastSync()}
+          </div>
+        )}
       </div>
 
-      <div>
-        <button
-          onClick={isOffline ? checkConnectionStatus : syncPendingData}
-          disabled={isSyncing}
-          className="bg-blue-700 hover:bg-blue-600 text-white py-1 px-3 rounded text-sm flex items-center"
-        >
-          {isSyncing ? (
-            <>
-              <RefreshCw size={14} className="mr-1 animate-spin" /> Syncing...{" "}
-              {/* ← was: 'Sincronizando...' */}
-            </>
-          ) : isOffline ? (
-            "Check connection" // ← was: 'Verificar conexão'
-          ) : (
-            "Sync now" // ← was: 'Sincronizar agora'
-          )}
-        </button>
-      </div>
+      <button
+        onClick={isOffline ? checkConnectionStatus : syncPendingData}
+        disabled={isSyncing}
+        className="bg-blue-700 hover:bg-blue-600 text-white py-1 px-2 rounded text-xs flex items-center shrink-0"
+      >
+        {isSyncing ? (
+          <>
+            <RefreshCw size={12} className="mr-1 animate-spin" /> Syncing...
+          </>
+        ) : isOffline ? (
+          "Retry"
+        ) : (
+          "Sync"
+        )}
+      </button>
     </div>
   );
 };

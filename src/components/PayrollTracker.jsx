@@ -16,7 +16,7 @@ const STANDARD_HOURS_BY_DAY = {
   6: 0   // Saturday
 };
 // O ID de usuário padrão - em uma versão futura, isso seria gerenciado com autenticação
-const DEFAULT_USER_ID = '680db60ba77dff12ddc79e2d';
+const DEFAULT_USER_ID = '69993e98685c417bb546fbd0';
 
 const PayrollTracker = () => {
   // Estado

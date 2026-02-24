@@ -35,7 +35,7 @@ api.interceptors.response.use(
 const apiService = {
   // Health & status
   testConnection: () => api.get("/test"),
-  getStatus: () => api.get("/status"),
+  getStatus: () => api.get("/status", { timeout: 3000 }),
 
   // Payroll periods
   getPayrollPeriods: () => api.get("/payroll-periods"),

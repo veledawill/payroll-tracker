@@ -165,24 +165,6 @@ async function initializeDatabase() {
       user: savedUser._id,
     }).save();
 
-    // Tax brackets (ATO PAYG NAT 1007 - July 2024)
-    await TaxBracket.insertMany([
-      { earnings: 0, with_tax: 0, effective_from: "2026-01-01" },
-      { earnings: 1576.0, with_tax: 0, effective_from: "2026-01-01" },
-      { earnings: 1577.33, with_tax: 4.0, effective_from: "2026-01-01" },
-      { earnings: 1603.33, with_tax: 9.0, effective_from: "2026-01-01" },
-      { earnings: 1633.67, with_tax: 13.0, effective_from: "2026-01-01" },
-      { earnings: 2000.0, with_tax: 87.0, effective_from: "2026-01-01" },
-      { earnings: 3000.0, with_tax: 312.0, effective_from: "2026-01-01" },
-      { earnings: 4000.0, with_tax: 572.0, effective_from: "2026-01-01" },
-      { earnings: 5000.0, with_tax: 823.0, effective_from: "2026-01-01" },
-      { earnings: 6000.0, with_tax: 1057.0, effective_from: "2026-01-01" },
-      { earnings: 8000.0, with_tax: 1564.0, effective_from: "2026-01-01" },
-      { earnings: 10000.0, with_tax: 2396.0, effective_from: "2026-01-01" },
-      { earnings: 12000.0, with_tax: 3072.0, effective_from: "2026-01-01" },
-      { earnings: 12675.0, with_tax: 3393.0, effective_from: "2026-01-01" },
-    ]);
-
     console.log("Database initialised successfully!");
   } catch (error) {
     console.error("Error initialising database:", error);
